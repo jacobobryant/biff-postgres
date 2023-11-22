@@ -7,13 +7,10 @@
             [com.biffweb.examples.postgres.middleware :as mid]
             [com.biffweb.examples.postgres.ui :as ui]
             [com.biffweb.examples.postgres.worker :as worker]
-            [com.biffweb.examples.postgres.schema :as schema]
             [clojure.java.io :as io]
             [clojure.test :as test]
             [clojure.tools.logging :as log]
             [clojure.tools.namespace.repl :as tn-repl]
-            [malli.core :as malc]
-            [malli.registry :as malr]
             [next.jdbc :as jdbc]
             [nrepl.cmdline :as nrepl-cmd]))
 
@@ -21,7 +18,6 @@
   [app/plugin
    (auth-plugin/plugin {})
    home/plugin
-   schema/plugin
    worker/plugin])
 
 (def routes [["" {:middleware [mid/wrap-site-defaults]}
@@ -45,20 +41,13 @@
   (generate-assets! ctx)
   (test/run-all-tests #"com.biffweb.examples.postgres.test.*"))
 
-(def malli-opts
-  {:registry (malr/composite-registry
-              malc/default-registry
-              (apply biff/safe-merge
-                     (keep :schema plugins)))})
-
 (def initial-system
   {:biff/plugins #'plugins
+   :biff/merge-context-fn identity
    :biff/send-email #'email/send-email
    :biff/handler #'handler
-   :biff/malli-opts #'malli-opts
    :biff.beholder/on-save #'on-save
    :biff.middleware/on-error #'ui/on-error
-   :biff.xtdb/tx-fns biff/tx-fns
    :example/chat-clients (atom #{})})
 
 (defonce system (atom {}))
@@ -71,10 +60,8 @@
 (def components
   [biff/use-config
    biff/use-secrets
-   biff/use-xt
    use-postgres
    biff/use-queues
-   biff/use-tx-listener
    biff/use-jetty
    biff/use-chime
    biff/use-beholder])

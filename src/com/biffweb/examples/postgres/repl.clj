@@ -11,7 +11,7 @@
 ;; should receive the system map from the parent Biff component. For example,
 ;; the use-jetty component merges the system map into incoming Ring requests.
 (defn get-context []
-  (biff/assoc-db @main/system))
+  (biff/merge-context @main/system))
 
 (defn add-fixtures []
   (let [{:keys [example/ds] :as ctx} (get-context)

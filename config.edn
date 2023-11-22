@@ -1,16 +1,5 @@
 ;; vim: ft=clojure
 {:prod {:example/postgres-url "PROD_POSTGRES_URL"
-        :biff.xtdb/dir "storage/xtdb"
-        :biff.xtdb/topology :standalone
-        ;; Standalone topology in production isn't recommended for anything
-        ;; serious. You can uncomment the following to use managed postgres
-        ;; instead.
-        ;; :biff.xtdb/topology :jdbc
-        ;; :biff.xtdb.jdbc/user "user"
-        ;; :biff.xtdb.jdbc/password "JDBC_PASSWORD" ; Leave this as-is, and update secrets.env
-        ;; :biff.xtdb.jdbc/host "host"
-        ;; :biff.xtdb.jdbc/port 5432
-        ;; :biff.xtdb.jdbc/dbname "dbname"
         :biff/base-url "https://example.com"
         ;; Postmark is used to send email sign-in links. Create an account at
         ;; https://postmarkapp.com
@@ -33,7 +22,6 @@
        :biff/host "0.0.0.0"
        :biff/port 8080
        :biff/base-url "http://localhost:8080"
-       :biff.xtdb/topology :standalone
        :biff.middleware/secure false}
  :tasks {:biff.tasks/server "example.com"
          :biff.tasks/clj-args ["-J-XX:-OmitStackTraceInFastThrow"
