@@ -51,4 +51,7 @@
          :biff.tasks/deploy-cmd ["git" "push" "prod" "master"]
          ;; Uncomment this line if you have any ssh-related problems:
          ;:biff.tasks/skip-ssh-agent true
-         }}
+         :example/docker-postgres-args ["-e" "POSTGRES_DB=main"
+                                        "-e" "POSTGRES_USER=user"
+                                        "-e" "POSTGRES_PASSWORD=abc123"
+                                        "-p" "5432:5432"]}}
