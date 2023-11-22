@@ -59,7 +59,7 @@
    :biff.beholder/on-save #'on-save
    :biff.middleware/on-error #'ui/on-error
    :biff.xtdb/tx-fns biff/tx-fns
-   :com.biffweb.examples.postgres/chat-clients (atom #{})})
+   :example/chat-clients (atom #{})})
 
 (defonce system (atom {}))
 
