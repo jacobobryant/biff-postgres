@@ -1,5 +1,6 @@
 ;; vim: ft=clojure
-{:prod {:biff.xtdb/dir "storage/xtdb"
+{:prod {:example/postgres-url "PROD_POSTGRES_URL"
+        :biff.xtdb/dir "storage/xtdb"
         :biff.xtdb/topology :standalone
         ;; Standalone topology in production isn't recommended for anything
         ;; serious. You can uncomment the following to use managed postgres
@@ -27,6 +28,7 @@
         :biff.middleware/cookie-secret "COOKIE_SECRET"
         :biff/jwt-secret "JWT_SECRET"}
  :dev {:merge [:prod]
+       :example/postgres-url "DEV_POSTGRES_URL"
        :biff.beholder/enabled true
        :biff/host "0.0.0.0"
        :biff/port 8080

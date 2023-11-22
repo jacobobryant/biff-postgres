@@ -7,11 +7,13 @@
             [com.biffweb.examples.postgres.ui :as ui]
             [com.biffweb.examples.postgres.worker :as worker]
             [com.biffweb.examples.postgres.schema :as schema]
+            [clojure.java.io :as io]
             [clojure.test :as test]
             [clojure.tools.logging :as log]
             [clojure.tools.namespace.repl :as tn-repl]
             [malli.core :as malc]
             [malli.registry :as malr]
+            [next.jdbc :as jdbc]
             [nrepl.cmdline :as nrepl-cmd]))
 
 (def plugins
@@ -60,10 +62,16 @@
 
 (defonce system (atom {}))
 
+(defn use-postgres [{:keys [biff/secret] :as ctx}]
+  (let [ds (jdbc/get-datasource (secret :example/postgres-url))]
+    (jdbc/execute! ds [(slurp (io/resource "migrations.sql"))])
+    (assoc ctx :example/ds ds)))
+
 (def components
   [biff/use-config
    biff/use-secrets
    biff/use-xt
+   use-postgres
    biff/use-queues
    biff/use-tx-listener
    biff/use-jetty
