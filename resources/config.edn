@@ -11,6 +11,11 @@
                                        "standalone"]
  :biff.xtdb.jdbc/jdbcUrl #biff/secret "XTDB_JDBC_URL"
 
+ :example/docker-postgres-args ["-e" "POSTGRES_DB=main"
+                                "-e" "POSTGRES_USER=user"
+                                "-e" "POSTGRES_PASSWORD=abc123"
+                                "-p" "5432:5432"]
+
  :biff.beholder/enabled         #profile {:dev true :default false}
  :biff.middleware/secure        #profile {:dev false :default true}
  :biff.middleware/cookie-secret #biff/secret COOKIE_SECRET
