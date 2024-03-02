@@ -1,8 +1,11 @@
 (ns repl
   (:require [com.biffweb.example.postgres :as main]
+            [com.biffweb.example.postgres.util.postgres :as util-pg]
             [com.biffweb :as biff :refer [q]]
             [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.string :as str]
+            [next.jdbc :as jdbc]))
 
 ;; REPL-driven development
 ;; ----------------------------------------------------------------------------------------
@@ -28,10 +31,23 @@
   (biff/merge-context @main/system))
 
 (defn add-fixtures []
-  (biff/submit-tx (get-context)
-    (-> (io/resource "fixtures.edn")
-        slurp
-        edn/read-string)))
+  (let [{:keys [example/ds] :as ctx} (get-context)
+        user-id (random-uuid)]
+    (jdbc/execute! ds ["INSERT INTO users (id, email, foo) VALUES (?, ?, ?)"
+                       user-id "a@example.com" "Some Value"])
+    (jdbc/execute! ds ["INSERT INTO message (id, user_id, text) VALUES (?, ?, ?)"
+                       (random-uuid) user-id "hello there"])))
+
+(defn reset-db! []
+  (let [{:keys [example/ds]} (get-context)]
+    (jdbc/execute! ds [(str/join
+                        " ; "
+                        (for [table ["migrations"
+                                     "users"
+                                     "message"
+                                     "auth_code"]]
+                          (str "DROP TABLE IF EXISTS " table)))])
+    (jdbc/execute! ds [(slurp (io/resource "migrations.sql"))])))
 
 (defn check-config []
   (let [prod-config (biff/use-aero-config {:biff.config/profile "prod"})
@@ -59,25 +75,24 @@
   (main/refresh)
 
   ;; Call this in dev if you'd like to add some seed data to your database. If
-  ;; you edit the seed data (in resources/fixtures.edn), you can reset the
-  ;; database by running `rm -r storage/xtdb` (DON'T run that in prod),
-  ;; restarting your app, and calling add-fixtures again.
+  ;; you edit the seed data, you can reset the database by calling reset-db!
+  ;; (DON'T do that in prod) and calling add-fixtures again.
+  (reset-db!)
   (add-fixtures)
 
+  ;; Create a user
+  (let [{:keys [example/ds] :as ctx} (get-context)]
+    (jdbc/execute! ds (util-pg/new-user-statement "hello@example.com")))
+
   ;; Query the database
-  (let [{:keys [biff/db] :as ctx} (get-context)]
-    (q db
-       '{:find (pull user [*])
-         :where [[user :user/email]]}))
+  (let [{:keys [example/ds] :as ctx} (get-context)]
+    (jdbc/execute! ds ["SELECT * FROM users"]))
 
   ;; Update an existing user's email address
-  (let [{:keys [biff/db] :as ctx} (get-context)
-        user-id (biff/lookup-id db :user/email "hello@example.com")]
-    (biff/submit-tx ctx
-      [{:db/doc-type :user
-        :xt/id user-id
-        :db/op :update
-        :user/email "new.address@example.com"}]))
+  (let [{:keys [example/ds] :as ctx} (get-context)]
+    (jdbc/execute! ds ["UPDATE users SET email = ? WHERE email = ?"
+                       "new.address@example.com"
+                       "hello@example.com"]))
 
   (sort (keys (get-context)))
 
