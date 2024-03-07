@@ -1,5 +1,6 @@
 (ns com.biffweb.example.postgres
   (:require [com.biffweb :as biff]
+            [com.biffweb.example.postgres.auth-module :as auth-module]
             [com.biffweb.example.postgres.email :as email]
             [com.biffweb.example.postgres.app :as app]
             [com.biffweb.example.postgres.home :as home]
@@ -19,7 +20,7 @@
 
 (def modules
   [app/module
-   (biff/authentication-module {})
+   (auth-module/module {})
    home/module
    schema/module
    worker/module])
