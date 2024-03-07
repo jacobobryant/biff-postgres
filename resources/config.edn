@@ -5,12 +5,6 @@
                           :default "localhost"}
  :biff/port     8080
 
- :biff.xtdb/dir          "storage/xtdb"
- :biff.xtdb/topology     #keyword #or [#profile {:prod #biff/env "PROD_XTDB_TOPOLOGY"
-                                                 :default #biff/env "XTDB_TOPOLOGY"}
-                                       "standalone"]
- :biff.xtdb.jdbc/jdbcUrl #biff/secret "XTDB_JDBC_URL"
-
  :example/docker-postgres-args ["-e" "POSTGRES_DB=main"
                                 "-e" "POSTGRES_USER=user"
                                 "-e" "POSTGRES_PASSWORD=abc123"
