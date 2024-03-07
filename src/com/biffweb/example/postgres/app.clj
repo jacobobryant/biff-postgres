@@ -3,17 +3,15 @@
             [com.biffweb.example.postgres.middleware :as mid]
             [com.biffweb.example.postgres.ui :as ui]
             [com.biffweb.example.postgres.settings :as settings]
+            [com.biffweb.example.postgres.util.postgres :as util-pg]
+            [next.jdbc :as jdbc]
             [rum.core :as rum]
-            [xtdb.api :as xt]
             [ring.adapter.jetty9 :as jetty]
             [cheshire.core :as cheshire]))
 
-(defn set-foo [{:keys [session params] :as ctx}]
-  (biff/submit-tx ctx
-    [{:db/op :update
-      :db/doc-type :user
-      :xt/id (:uid session)
-      :user/foo (:foo params)}])
+(defn set-foo [{:keys [example/ds session params] :as ctx}]
+  (jdbc/execute! ds ["UPDATE users SET foo = ? WHERE id = ?"
+                     (:foo params) (:uid session)])
   {:status 303
    :headers {"location" "/app"}})
 
@@ -32,45 +30,32 @@
    [:.text-sm.text-gray-600
     "This demonstrates updating a value with HTMX."]))
 
-(defn set-bar [{:keys [session params] :as ctx}]
-  (biff/submit-tx ctx
-    [{:db/op :update
-      :db/doc-type :user
-      :xt/id (:uid session)
-      :user/bar (:bar params)}])
+(defn set-bar [{:keys [example/ds session params] :as ctx}]
+  (jdbc/execute! ds ["UPDATE users SET bar = ? WHERE id = ?"
+                     (:bar params) (:uid session)])
   (biff/render (bar-form {:value (:bar params)})))
 
-(defn message [{:msg/keys [text sent-at]}]
+(defn ui-message [{:message/keys [text sent_at]}]
   [:.mt-3 {:_ "init send newMessage to #message-header"}
-   [:.text-gray-600 (biff/format-date sent-at "dd MMM yyyy HH:mm:ss")]
+   [:.text-gray-600 (biff/format-date sent_at "dd MMM yyyy HH:mm:ss")]
    [:div text]])
 
-(defn notify-clients [{:keys [com.biffweb.example.postgres/chat-clients]} tx]
-  (doseq [[op & args] (::xt/tx-ops tx)
-          :when (= op ::xt/put)
-          :let [[doc] args]
-          :when (contains? doc :msg/text)
-          :let [html (rum/render-static-markup
-                      [:div#messages {:hx-swap-oob "afterbegin"}
-                       (message doc)])]
-          ws @chat-clients]
-    (jetty/send! ws html)))
+(defn send-message [{:keys [example/ds example/chat-clients session] :as ctx} {:keys [text]}]
+  (let [{:keys [text]} (cheshire/parse-string text true)
+        message {:message/id (random-uuid)
+                 :message/user_id (:uid session)
+                 :message/text text
+                 :message/sent_at (java.sql.Timestamp. (System/currentTimeMillis))}
+        html (rum/render-static-markup
+              [:div#messages {:hx-swap-oob "afterbegin"}
+               (ui-message message)])]
+    (jdbc/execute! ds (into ["INSERT INTO message (id, user_id, text, sent_at) VALUES (?, ?, ?, ?)"]
+                            ((juxt :message/id :message/user_id :message/text :message/sent_at) message)))
+    (doseq [ws @chat-clients]
+      (jetty/send! ws html))))
 
-(defn send-message [{:keys [session] :as ctx} {:keys [text]}]
-  (let [{:keys [text]} (cheshire/parse-string text true)]
-    (biff/submit-tx ctx
-      [{:db/doc-type :msg
-        :msg/user (:uid session)
-        :msg/text text
-        :msg/sent-at :db/now}])))
-
-(defn chat [{:keys [biff/db]}]
-  (let [messages (q db
-                    '{:find (pull msg [*])
-                      :in [t0]
-                      :where [[msg :msg/sent-at t]
-                              [(<= t0 t)]]}
-                    (biff/add-seconds (java.util.Date.) (* -60 10)))]
+(defn chat [{:keys [example/ds]}]
+  (let [messages (jdbc/execute! ds ["SELECT * FROM message WHERE sent_at >= now() - INTERVAL '10 minutes'"])]
     [:div {:hx-ext "ws" :ws-connect "/app/chat"}
      [:form.mb-0 {:ws-send true
                   :_ "on submit set value of #message to ''"}
@@ -89,10 +74,12 @@
         "No messages yet."
         "Messages sent in the past 10 minutes:")]
      [:div#messages
-      (map message (sort-by :msg/sent-at #(compare %2 %1) messages))]]))
+      (map ui-message (sort-by :message/sent_at #(compare %2 %1) messages))]]))
 
-(defn app [{:keys [session biff/db] :as ctx}]
-  (let [{:user/keys [email foo bar]} (xt/entity db (:uid session))]
+
+(defn app [{:keys [session example/ds] :as ctx}]
+  (let [{:users/keys [email foo bar]} (jdbc/execute-one! ds ["SELECT * FROM users WHERE id = ?"
+                                                             (:uid session)])]
     (ui/page
      {}
      [:div "Signed in as " email ". "
@@ -120,7 +107,7 @@
      [:.h-6]
      (chat ctx))))
 
-(defn ws-handler [{:keys [com.biffweb.example.postgres/chat-clients] :as ctx}]
+(defn ws-handler [{:keys [example/chat-clients] :as ctx}]
   {:status 101
    :headers {"upgrade" "websocket"
              "connection" "upgrade"}
@@ -149,5 +136,4 @@
             ["/set-foo" {:post set-foo}]
             ["/set-bar" {:post set-bar}]
             ["/chat" {:get ws-handler}]]
-   :api-routes [["/api/echo" {:post echo}]]
-   :on-tx notify-clients})
+   :api-routes [["/api/echo" {:post echo}]]})
